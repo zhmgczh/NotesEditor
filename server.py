@@ -150,6 +150,7 @@ class MyServer(BaseHTTPRequestHandler):
         self.wfile.write(bytes('<body style="text-align:center">','utf-8'))
         self.wfile.write(bytes('<h1>編輯《大陸居民臺灣正體字講義》</h1>','utf-8'))
         self.wfile.write(bytes('<h2>'+colored_word+'</h2>','utf-8'))
+        self.wfile.write(bytes('<p><a href="/next/">查看下一待考詞彙</a></p>','utf-8'))
         for character in ordered_characters:
             self.wfile.write(bytes('<h3>'+character+'</h3>','utf-8'))
             self.wfile.write(bytes('<input type="button" onclick="javascript:location.href=\'/check/?word='+quote(word)+'&character='+quote(character)+'\'" value="'+('已確認' if display[character] else '未確認')+'"></input>','utf-8'))
@@ -160,6 +161,22 @@ class MyServer(BaseHTTPRequestHandler):
                 self.wfile.write(bytes('<p><a href="'+website_base_url+entry['url']+'" target="_blank">轉到 '+entry['title']+'</a></p>','utf-8'))
         self.wfile.write(bytes('<iframe src="https://www.moedict.tw/'+quote(word)+'" height="350px" width="95%" data-ruffle-polyfilled=""></iframe>','utf-8'))
         self.wfile.write(bytes('<p><a href="https://dict.revised.moe.edu.tw/search.jsp?md=1&word='+quote(word)+'&qMd=0&qCol=1" target="_blank">'+word+'</a></p>','utf-8'))
+    def get_next_word(self):
+        conn=sqlite3.connect(database_name)
+        cursor=conn.cursor()
+        cursor.execute('select word,character from words where checked=false;')
+        output=cursor.fetchall()
+        temporary={}
+        for row in output:
+            for entry in self.entry_database[row[1]]:
+                if entry['title'] not in temporary:
+                    temporary[entry['title']]=[]
+                temporary[entry['title']].append(row[0])
+        next_word=None
+        for title in temporary:
+            next_word=temporary[title][0]
+            break
+        return next_word
     def check_word_character(self,word,character):
         conn=sqlite3.connect(database_name)
         cursor=conn.cursor()
@@ -184,6 +201,9 @@ class MyServer(BaseHTTPRequestHandler):
             if 'word' in query and 'character' in query:
                 self.check_word_character(query['word'][0],query['character'][0])
                 self.redirect('/'+quote(query['word'][0])+'/')
+        elif '/next/'==self.path:
+            next_word=self.get_next_word()
+            self.redirect('/'+(next_word+'/' if None!=next_word else ''))
         elif '/'==self.path[0] and '/'==self.path[-1] and 0==self.path[1:-1].count('/'):
             word=unquote(self.path[1:-1])
             self.add_word(word)

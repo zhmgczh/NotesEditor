@@ -12,4 +12,5 @@ insert or ignore into words (word,character) values ('猛撲','撲');
 select * from words;
 select character from words where word='撲向';
 select word,character from words where checked=false;
+select word from words where checked=false limit 1;
 update or ignore words set checked=not checked where word='撲向' and character='撲';
