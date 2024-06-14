@@ -43,7 +43,7 @@ class MyServer(BaseHTTPRequestHandler):
         self.wfile.write(bytes('<h2>待考詞彙表</h2>','utf-8'))
         conn=sqlite3.connect(database_name)
         cursor=conn.cursor()
-        cursor.execute('select word,character from words where checked=false;')
+        cursor.execute('select word,character from words where checked=false order by character,word;')
         output=cursor.fetchall()
         display={}
         for row in output:
@@ -131,7 +131,7 @@ class MyServer(BaseHTTPRequestHandler):
         self.end_headers()
         conn=sqlite3.connect(database_name)
         cursor=conn.cursor()
-        cursor.execute("select character,checked from words where word='"+word+"';")
+        cursor.execute("select character,checked from words where word='"+word+"' order by checked,character;")
         output=cursor.fetchall()
         display={}
         for row in output:
@@ -164,7 +164,7 @@ class MyServer(BaseHTTPRequestHandler):
     def get_next_word(self):
         conn=sqlite3.connect(database_name)
         cursor=conn.cursor()
-        cursor.execute('select word,character from words where checked=false;')
+        cursor.execute('select word,character from words where checked=false order by character,word;')
         output=cursor.fetchall()
         temporary={}
         for row in output:
