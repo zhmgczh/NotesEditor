@@ -1,6 +1,6 @@
 from http.server import BaseHTTPRequestHandler,HTTPServer
 from socketserver import BaseServer
-import datetime,requests,json,sqlite3
+import datetime,requests,json,sqlite3,re
 from urllib.parse import quote,unquote,parse_qs
 hostName='45.76.17.116'
 serverPort=6789
@@ -114,7 +114,7 @@ class MyServer(BaseHTTPRequestHandler):
         for length in range(len(word),1,-1):
             for i in range(len(word)-length+1):
                 truncated_word=word[i:i+length]
-                start_indices=[i for i in range(len(article)) if article.startswith(truncated_word,i)]
+                start_indices=[m.start() for m in re.finditer(truncated_word,article)]
                 for start_index in start_indices:
                     for j in range(start_index,start_index+length):
                         colored[j]=True
