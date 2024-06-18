@@ -2,20 +2,21 @@ from http.server import BaseHTTPRequestHandler,HTTPServer
 from socketserver import BaseServer
 import datetime,requests,json,sqlite3,re
 from urllib.parse import quote,unquote,parse_qs
-hostName='45.76.17.116'
-serverPort=6789
+hostName='45.76.17.116'#'localhost'
+serverPort=6789#8080
 website_base_url='https://static.zh-tw.top'
 category_database_url='https://static.zh-tw.top/category_database.js'
 database_name='words.db'
 class MyServer(BaseHTTPRequestHandler):
     def __init__(self,request,client_address,server:BaseServer)->None:
+        self.global_debug=''
         self.daily_job()
         self.check_date=datetime.date.today()
-        self.global_debug=''
         super().__init__(request,client_address,server)
     def daily_job(self):
         category_database=json.loads(requests.get(category_database_url).text)['一簡多繁辨析']
         self.entry_database={}
+        self.all_words={}
         for entry in category_database:
             title=entry['title']
             split=title[len('一簡多繁辨析之「'):-1].split('」→「')
@@ -23,10 +24,16 @@ class MyServer(BaseHTTPRequestHandler):
             jians=split[1].split('、')
             new_title='、'.join(zhengs)+'→'+'、'.join(jians)
             entry['title']=new_title
+            all_words=self.get_all_words(entry['description'])
             for zheng in zhengs:
                 if zheng not in self.entry_database:
                     self.entry_database[zheng]=[]
                 self.entry_database[zheng].append(entry)
+                if zheng not in self.all_words:
+                    self.all_words[zheng]=[]
+                self.all_words[zheng].append(all_words)
+            for word in all_words:
+                self.add_word(word)
     def print_index(self):
         self.send_response(200)
         self.send_header('Content-type','text/html;charset=utf-8')
@@ -58,46 +65,36 @@ class MyServer(BaseHTTPRequestHandler):
         conn.close()
         self.wfile.write(bytes('<h3>'+str(self.global_debug)+'</h3>','utf-8'))
         self.wfile.write(bytes('</body></html>','utf-8'))
-    def get_checked(self,word,character):
-        for entry in self.entry_database[character]:
-            checked=False
-            words=[]
-            article=entry['description']
-            while -1!=article.find('「'):
-                left=article.find('「')
-                right=article.find('」')
-                if left<right:
-                    words.append(article[left+1:right])
-                    article=article[right+1:]
+    def get_all_words(self,article):
+        words=[]
+        mode=0
+        new_word=''
+        for i in range(len(article)):
+            if 0==mode:
+                if '「'==article[i]:
+                    mode=1
+            elif 1==mode:
+                if '（'==article[i]:
+                    mode+=1
+                elif '」'==article[i]:
+                    words.append(new_word)
+                    new_word=''
+                    mode=0
                 else:
-                    break
-            for index_w in range(len(words)):
-                valid=True
-                while valid and '（' in words[index_w]:
-                    w=words[index_w]
-                    num=0
-                    left=right=-1
-                    for index in range(len(w)):
-                        if '（'==w[index]:
-                            if 0==num:
-                                left=index
-                            num+=1
-                        elif '）'==w[index]:
-                            num-=1
-                            if -1!=left and 0==num:
-                                right=index
-                                w=w.replace(w[left:right+1],'',1)
-                                words[index_w]=w
-                                break
-                        if num<0:
-                            valid=False
-                            break
-                if word==words[index_w]:
-                    checked=True
-                    break
-            if not checked:
-                return False
-        return True
+                    new_word+=article[i]
+            else:
+                if '）'==article[i]:
+                    mode-=1
+                elif '（'==article[i]:
+                    mode+=1
+        if ''!=new_word:
+            words.append(new_word)
+        return words
+    def get_checked(self,word,character):
+        checked=True
+        for entry in self.all_words[character]:
+            checked=checked and word in entry
+        return checked
     def add_word(self,word):
         conn=sqlite3.connect(database_name)
         cursor=conn.cursor()
