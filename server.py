@@ -200,7 +200,7 @@ class MyServer(BaseHTTPRequestHandler):
         self.send_response(200)
         self.send_header('Content-type','text/html;charset=utf-8')
         self.end_headers()
-        self.wfile.write(bytes('<html><head><meta http-equiv="Refresh" content="0; URL='+url+'"/></head></html>','utf-8'))
+        self.wfile.write(bytes("<html><head><script>window.location.replace('"+url+"')</script></head></html>",'utf-8'))
     def print_404(self):
         pass
     def do_GET(self):
