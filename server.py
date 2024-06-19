@@ -204,7 +204,6 @@ class MyServer(BaseHTTPRequestHandler):
     def print_404(self):
         pass
     def do_GET(self):
-        global check_date
         if '/'==self.path:
             self.print_index()
         elif self.path.startswith('/?word='):
@@ -224,9 +223,6 @@ class MyServer(BaseHTTPRequestHandler):
             self.print_word(word)
         else:
             self.print_404()
-        if datetime.date.today()!=check_date:
-            self.daily_job()
-            check_date=datetime.date.today()
 if __name__=='__main__':
     webServer=HTTPServer((hostName,serverPort),MyServer)
     print('Server started http://%s:%s'%(hostName,serverPort))
