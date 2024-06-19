@@ -7,16 +7,22 @@ serverPort=6789#8080
 website_base_url='https://static.zh-tw.top'
 category_database_url='https://static.zh-tw.top/category_database.js'
 database_name='words.db'
+check_date=''
+entry_database={}
+all_words={}
 class MyServer(BaseHTTPRequestHandler):
     def __init__(self,request,client_address,server:BaseServer)->None:
+        global check_date
         self.global_debug=''
-        self.daily_job()
-        self.check_date=datetime.date.today()
+        if datetime.date.today()!=check_date:
+            self.daily_job()
+            check_date=datetime.date.today()
         super().__init__(request,client_address,server)
     def daily_job(self):
+        global entry_database,all_words
         category_database=json.loads(requests.get(category_database_url).text)['一簡多繁辨析']
-        self.entry_database={}
-        self.all_words={}
+        entry_database={}
+        all_words={}
         for entry in category_database:
             title=entry['title']
             split=title[len('一簡多繁辨析之「'):-1].split('」→「')
@@ -24,17 +30,21 @@ class MyServer(BaseHTTPRequestHandler):
             jians=split[1].split('、')
             new_title='、'.join(zhengs)+'→'+'、'.join(jians)
             entry['title']=new_title
-            all_words=self.get_all_words(entry['description'])
+            new_all_words=self.get_all_words(entry['description'])
             for zheng in zhengs:
-                if zheng not in self.entry_database:
-                    self.entry_database[zheng]=[]
-                self.entry_database[zheng].append(entry)
-                if zheng not in self.all_words:
-                    self.all_words[zheng]=[]
-                self.all_words[zheng].append(all_words)
+                if zheng not in entry_database:
+                    entry_database[zheng]=[]
+                entry_database[zheng].append(entry)
+                if zheng not in all_words:
+                    all_words[zheng]=[]
+                all_words[zheng].append(new_all_words)
             for word in all_words:
                 self.add_word(word)
+        now=datetime.datetime.now()
+        date_time=now.strftime('%Y-%m-%d %H:%M:%S (GMT)')
+        self.global_debug='Daily job was finished at '+date_time+'.'
     def print_index(self):
+        global entry_database
         self.send_response(200)
         self.send_header('Content-type','text/html;charset=utf-8')
         self.end_headers()
@@ -54,7 +64,7 @@ class MyServer(BaseHTTPRequestHandler):
         output=cursor.fetchall()
         display={}
         for row in output:
-            for entry in self.entry_database[row[1]]:
+            for entry in entry_database[row[1]]:
                 if entry['title'] not in display:
                     display[entry['title']]=[]
                 display[entry['title']].append(row[0])
@@ -91,16 +101,18 @@ class MyServer(BaseHTTPRequestHandler):
             words.append(new_word)
         return words
     def get_checked(self,word,character):
+        global all_words
         checked=True
-        for entry in self.all_words[character]:
+        for entry in all_words[character]:
             checked=checked and word in entry
         return checked
     def add_word(self,word):
+        global entry_database
         conn=sqlite3.connect(database_name)
         cursor=conn.cursor()
         insert_pairs=[]
         for character in word:
-            if character in self.entry_database:
+            if character in entry_database:
                 insert_pairs.append((word,character))
         for pair in insert_pairs:
             cursor.execute("insert or ignore into words (word,character,checked) values ('"+pair[0]+"','"+pair[1]+"',"+('true' if self.get_checked(pair[0],pair[1]) else 'false')+');')
@@ -123,6 +135,7 @@ class MyServer(BaseHTTPRequestHandler):
                 new_article+=article[i]
         return new_article
     def print_word(self,word):
+        global entry_database
         self.send_response(200)
         self.send_header('Content-type','text/html;charset=utf-8')
         self.end_headers()
@@ -151,21 +164,24 @@ class MyServer(BaseHTTPRequestHandler):
         for character in ordered_characters:
             self.wfile.write(bytes('<h3>'+character+'</h3>','utf-8'))
             self.wfile.write(bytes('<input type="button" onclick="javascript:location.href=\'/check/?word='+quote(word)+'&character='+quote(character)+'\'" value="'+('已確認' if display[character] else '未確認')+'"></input>','utf-8'))
-            for entry in self.entry_database[character]:
+            for entry in entry_database[character]:
                 self.wfile.write(bytes('<h4 style="color:red">'+entry['title']+'</h4>','utf-8'))
                 article='<p>'+self.get_search_color(entry['description'],word).replace('\n','</p><p>')+'</p>'
                 self.wfile.write(bytes(article,'utf-8'))
                 self.wfile.write(bytes('<p><a href="'+website_base_url+entry['url']+'" target="_blank">轉到 '+entry['title']+'</a></p>','utf-8'))
         self.wfile.write(bytes('<iframe src="https://www.moedict.tw/'+quote(word)+'" height="350px" width="95%" data-ruffle-polyfilled=""></iframe>','utf-8'))
         self.wfile.write(bytes('<p><a href="https://dict.revised.moe.edu.tw/search.jsp?md=1&word='+quote(word)+'&qMd=0&qCol=1" target="_blank">'+word+'</a></p>','utf-8'))
+        self.wfile.write(bytes('<h3>'+str(self.global_debug)+'</h3>','utf-8'))
+        self.wfile.write(bytes('</body></html>','utf-8'))
     def get_next_word(self):
+        global entry_database
         conn=sqlite3.connect(database_name)
         cursor=conn.cursor()
         cursor.execute('select word,character from words where checked=false order by character,word;')
         output=cursor.fetchall()
         temporary={}
         for row in output:
-            for entry in self.entry_database[row[1]]:
+            for entry in entry_database[row[1]]:
                 if entry['title'] not in temporary:
                     temporary[entry['title']]=[]
                 temporary[entry['title']].append(row[0])
@@ -188,6 +204,7 @@ class MyServer(BaseHTTPRequestHandler):
     def print_404(self):
         pass
     def do_GET(self):
+        global check_date
         if '/'==self.path:
             self.print_index()
         elif self.path.startswith('/?word='):
@@ -207,9 +224,9 @@ class MyServer(BaseHTTPRequestHandler):
             self.print_word(word)
         else:
             self.print_404()
-        if datetime.date.today()!=self.check_date:
+        if datetime.date.today()!=check_date:
             self.daily_job()
-            self.check_date=datetime.date.today()
+            check_date=datetime.date.today()
 if __name__=='__main__':
     webServer=HTTPServer((hostName,serverPort),MyServer)
     print('Server started http://%s:%s'%(hostName,serverPort))
