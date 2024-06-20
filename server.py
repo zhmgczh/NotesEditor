@@ -75,6 +75,7 @@ class MyServer(BaseHTTPRequestHandler):
         conn.close()
         self.wfile.write(bytes('<h3>'+str(self.global_debug)+'</h3>','utf-8'))
         self.wfile.write(bytes('</body></html>','utf-8'))
+        self.wfile.close()
     def get_all_words(self,article):
         words=[]
         mode=0
@@ -173,6 +174,7 @@ class MyServer(BaseHTTPRequestHandler):
         self.wfile.write(bytes('<p><a href="https://dict.revised.moe.edu.tw/search.jsp?md=1&word='+quote(word)+'&qMd=0&qCol=1" target="_blank">'+word+'</a></p>','utf-8'))
         self.wfile.write(bytes('<h3>'+str(self.global_debug)+'</h3>','utf-8'))
         self.wfile.write(bytes('</body></html>','utf-8'))
+        self.wfile.close()
     def get_next_word(self):
         global entry_database
         conn=sqlite3.connect(database_name)
@@ -201,8 +203,9 @@ class MyServer(BaseHTTPRequestHandler):
         self.send_header('Content-type','text/html;charset=utf-8')
         self.end_headers()
         self.wfile.write(bytes("<html><head><script>window.location.replace('"+url+"')</script></head></html>",'utf-8'))
+        self.wfile.close()
     def print_404(self):
-        pass
+        self.send_response(404)
     def do_GET(self):
         if '/'==self.path:
             self.print_index()
