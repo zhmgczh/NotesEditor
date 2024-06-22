@@ -199,7 +199,7 @@ class MyServer(BaseHTTPRequestHandler):
         for pair in pairs:
             for word in pair[1]:
                 next_word=word
-            break
+                break
         return next_word
     def check_word_character(self,word,character):
         conn=sqlite3.connect(database_name)
