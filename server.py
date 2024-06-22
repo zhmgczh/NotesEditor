@@ -68,9 +68,13 @@ class MyServer(BaseHTTPRequestHandler):
                 if entry['title'] not in display:
                     display[entry['title']]=[]
                 display[entry['title']].append(row[0])
+        pairs=[]
         for title in display:
-            self.wfile.write(bytes('<h3>'+title+'</h3>','utf-8'))
-            for word in display[title]:
+            pairs.append((title,display[title]))
+        pairs.sort(key=lambda x:x[0])
+        for pair in pairs:
+            self.wfile.write(bytes('<h3>'+pair[0]+'</h3>','utf-8'))
+            for word in pair[1]:
                 self.wfile.write(bytes('<p><a href="/'+quote(word)+'/" target="_blank">'+word+'</a></p>','utf-8'))
         conn.close()
         self.wfile.write(bytes('<h3>'+str(self.global_debug)+'</h3>','utf-8'))
@@ -187,9 +191,14 @@ class MyServer(BaseHTTPRequestHandler):
                 if entry['title'] not in temporary:
                     temporary[entry['title']]=[]
                 temporary[entry['title']].append(row[0])
-        next_word=None
+        pairs=[]
         for title in temporary:
-            next_word=temporary[title][0]
+            pairs.append((title,temporary[title]))
+        pairs.sort(key=lambda x:x[0])
+        next_word=None
+        for pair in pairs:
+            for word in pair[1]:
+                next_word=word
             break
         return next_word
     def check_word_character(self,word,character):
