@@ -13,6 +13,9 @@ all_words={}
 class MyServer(BaseHTTPRequestHandler):
     def __init__(self,request,client_address,server:BaseServer)->None:
         global check_date
+        if ''==check_date:
+            self.daily_job()
+            check_date=datetime.date.today()
         self.global_debug=''
         super().__init__(request,client_address,server)
     def daily_job(self):
