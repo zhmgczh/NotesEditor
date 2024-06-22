@@ -14,9 +14,6 @@ class MyServer(BaseHTTPRequestHandler):
     def __init__(self,request,client_address,server:BaseServer)->None:
         global check_date
         self.global_debug=''
-        if datetime.date.today()!=check_date:
-            self.daily_job()
-            check_date=datetime.date.today()
         super().__init__(request,client_address,server)
     def daily_job(self):
         global entry_database,all_words
@@ -240,6 +237,10 @@ class MyServer(BaseHTTPRequestHandler):
             self.print_word(word)
         else:
             self.print_404()
+        global check_date
+        if datetime.date.today()!=check_date:
+            self.daily_job()
+            check_date=datetime.date.today()
 if __name__=='__main__':
     webServer=HTTPServer((hostName,serverPort),MyServer)
     print('Server started http://%s:%s'%(hostName,serverPort))
