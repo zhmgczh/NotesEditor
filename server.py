@@ -1,6 +1,6 @@
 from http.server import BaseHTTPRequestHandler,HTTPServer
 from socketserver import BaseServer
-import datetime,requests,json,sqlite3,re
+import datetime,requests,json,sqlite3,re,functools
 from urllib.parse import quote,unquote,parse_qs
 hostName='45.76.17.116'#'localhost'
 serverPort=6789#8080
@@ -10,6 +10,17 @@ database_name='words.db'
 check_date=''
 entry_database={}
 all_words={}
+def compare_entties(x,y):
+    if len(x[1])<len(y[1]):
+        return -1
+    elif len(x[1])>len(y[1]):
+        return 1
+    elif x[0]<y[0]:
+        return -1
+    elif x[0]>y[0]:
+        return 1
+    else:
+        return 0
 class MyServer(BaseHTTPRequestHandler):
     def __init__(self,request,client_address,server:BaseServer)->None:
         global check_date
@@ -71,7 +82,7 @@ class MyServer(BaseHTTPRequestHandler):
         pairs=[]
         for title in display:
             pairs.append((title,display[title]))
-        pairs.sort(key=lambda x:x[0])
+        pairs.sort(key=functools.cmp_to_key(compare_entties))
         for pair in pairs:
             self.wfile.write(bytes('<h3>'+pair[0]+'</h3>','utf-8'))
             for word in pair[1]:
@@ -196,7 +207,7 @@ class MyServer(BaseHTTPRequestHandler):
         pairs=[]
         for title in temporary:
             pairs.append((title,temporary[title]))
-        pairs.sort(key=lambda x:x[0])
+        pairs.sort(key=functools.cmp_to_key(compare_entties))
         next_word=None
         for pair in pairs:
             for word in pair[1]:
