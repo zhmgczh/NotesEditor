@@ -137,6 +137,7 @@ class MyServer(BaseHTTPRequestHandler):
         conn.close()
     def get_search_color(self,article,word):
         colored=[False for _ in article]
+        light_colored=[False for _ in article]
         for length in range(len(word),1,-1):
             for i in range(len(word)-length+1):
                 truncated_word=word[i:i+length]
@@ -144,10 +145,16 @@ class MyServer(BaseHTTPRequestHandler):
                 for start_index in start_indices:
                     for j in range(start_index,start_index+length):
                         colored[j]=True
+        for i in range(len(word)):
+            for j in range(len(article)):
+                if article[j]==word[i]:
+                    light_colored[j]=True
         new_article=''
         for i in range(len(article)):
             if colored[i]:
                 new_article+='<span style="background-color:yellow">'+article[i]+'</span>'
+            elif light_colored[i]:
+                new_article+='<span style="background-color:cyan">'+article[i]+'</span>'
             else:
                 new_article+=article[i]
         return new_article
