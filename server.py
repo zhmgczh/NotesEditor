@@ -1,13 +1,13 @@
 from http.server import BaseHTTPRequestHandler,HTTPServer
 from socketserver import BaseServer
-import datetime,requests,json,sqlite3,re,functools
+import datetime,requests,json,sqlite3,re,functools,time
 from urllib.parse import quote,unquote,parse_qs
+from threading import Thread
 hostName='45.76.17.116'#'localhost'
 serverPort=6789#8080
 website_base_url='https://static.zh-tw.top'
 category_database_url='https://static.zh-tw.top/category_database.js'
 database_name='words.db'
-check_date=''
 entry_database={}
 all_words={}
 def compare_entties(x,y):
@@ -21,39 +21,80 @@ def compare_entties(x,y):
         return 1
     else:
         return 0
+def get_all_words(article):
+    words=[]
+    mode=0
+    new_word=''
+    for i in range(len(article)):
+        if 0==mode:
+            if '「'==article[i]:
+                mode=1
+        elif 1==mode:
+            if '（'==article[i]:
+                mode+=1
+            elif '」'==article[i]:
+                words.append(new_word)
+                new_word=''
+                mode=0
+            else:
+                new_word+=article[i]
+        else:
+            if '）'==article[i]:
+                mode-=1
+            elif '（'==article[i]:
+                mode+=1
+    if ''!=new_word:
+        words.append(new_word)
+    return words
+def get_checked(word,character):
+    global all_words
+    checked=True
+    for entry in all_words[character]:
+        checked=checked and word in entry
+    return checked
+def add_word(word):
+    global entry_database
+    conn=sqlite3.connect(database_name)
+    cursor=conn.cursor()
+    insert_pairs=[]
+    for character in word:
+        if character in entry_database:
+            insert_pairs.append((word,character))
+    for pair in insert_pairs:
+        checked=get_checked(pair[0],pair[1])
+        cursor.execute("insert or ignore into words (word,character,checked) values ('"+pair[0]+"','"+pair[1]+"',"+('true' if checked else 'false')+');')
+        if checked:
+            cursor.execute("update or ignore words set checked=true where word='"+pair[0]+"' and character='"+pair[1]+"';")
+    conn.commit()
+    conn.close()
+def daily_job():
+    global entry_database,all_words
+    category_database=json.loads(requests.get(category_database_url).text)['一簡多繁辨析']
+    entry_database={}
+    all_words={}
+    for entry in category_database:
+        title=entry['title']
+        split=title[len('一簡多繁辨析之「'):-1].split('」→「')
+        zhengs=split[0].split('、')
+        jians=split[1].split('、')
+        new_title='、'.join(zhengs)+'→'+'、'.join(jians)
+        entry['title']=new_title
+        new_all_words=get_all_words(entry['description'])
+        for zheng in zhengs:
+            if zheng not in entry_database:
+                entry_database[zheng]=[]
+            entry_database[zheng].append(entry)
+            if zheng not in all_words:
+                all_words[zheng]=[]
+            all_words[zheng].append(new_all_words)
+    for title in all_words:
+        for words in all_words[title]:
+            for word in words:
+                add_word(word)
 class MyServer(BaseHTTPRequestHandler):
     def __init__(self,request,client_address,server:BaseServer)->None:
-        global check_date
-        if ''==check_date:
-            self.daily_job()
-            check_date=datetime.date.today()
         self.global_debug=''
         super().__init__(request,client_address,server)
-    def daily_job(self):
-        global entry_database,all_words
-        category_database=json.loads(requests.get(category_database_url).text)['一簡多繁辨析']
-        entry_database={}
-        all_words={}
-        for entry in category_database:
-            title=entry['title']
-            split=title[len('一簡多繁辨析之「'):-1].split('」→「')
-            zhengs=split[0].split('、')
-            jians=split[1].split('、')
-            new_title='、'.join(zhengs)+'→'+'、'.join(jians)
-            entry['title']=new_title
-            new_all_words=self.get_all_words(entry['description'])
-            for zheng in zhengs:
-                if zheng not in entry_database:
-                    entry_database[zheng]=[]
-                entry_database[zheng].append(entry)
-                if zheng not in all_words:
-                    all_words[zheng]=[]
-                all_words[zheng].append(new_all_words)
-            for word in all_words:
-                self.add_word(word)
-        now=datetime.datetime.now()
-        date_time=now.strftime('%Y-%m-%d %H:%M:%S (GMT)')
-        self.global_debug='Daily job was finished at '+date_time+'.'
     def print_index(self):
         global entry_database
         self.send_response(200)
@@ -92,49 +133,6 @@ class MyServer(BaseHTTPRequestHandler):
         self.wfile.write(bytes('</body></html>','utf-8'))
         self.wfile.flush()
         self.wfile.close()
-    def get_all_words(self,article):
-        words=[]
-        mode=0
-        new_word=''
-        for i in range(len(article)):
-            if 0==mode:
-                if '「'==article[i]:
-                    mode=1
-            elif 1==mode:
-                if '（'==article[i]:
-                    mode+=1
-                elif '」'==article[i]:
-                    words.append(new_word)
-                    new_word=''
-                    mode=0
-                else:
-                    new_word+=article[i]
-            else:
-                if '）'==article[i]:
-                    mode-=1
-                elif '（'==article[i]:
-                    mode+=1
-        if ''!=new_word:
-            words.append(new_word)
-        return words
-    def get_checked(self,word,character):
-        global all_words
-        checked=True
-        for entry in all_words[character]:
-            checked=checked and word in entry
-        return checked
-    def add_word(self,word):
-        global entry_database
-        conn=sqlite3.connect(database_name)
-        cursor=conn.cursor()
-        insert_pairs=[]
-        for character in word:
-            if character in entry_database:
-                insert_pairs.append((word,character))
-        for pair in insert_pairs:
-            cursor.execute("insert or ignore into words (word,character,checked) values ('"+pair[0]+"','"+pair[1]+"',"+('true' if self.get_checked(pair[0],pair[1]) else 'false')+');')
-        conn.commit()
-        conn.close()
     def get_search_color(self,article,word):
         colored=[False for _ in article]
         light_colored=[False for _ in article]
@@ -242,7 +240,7 @@ class MyServer(BaseHTTPRequestHandler):
         if '/'==self.path:
             self.print_index()
         elif self.path.startswith('/?word='):
-            self.add_word(unquote(self.path[len('/?word='):]))
+            add_word(unquote(self.path[len('/?word='):]))
             self.redirect('/')
         elif self.path.startswith('/check/?'):
             query=parse_qs(self.path[len('/check/?'):])
@@ -254,15 +252,20 @@ class MyServer(BaseHTTPRequestHandler):
             self.redirect('/'+(next_word+'/' if None!=next_word else ''))
         elif '/'==self.path[0] and '/'==self.path[-1] and 0==self.path[1:-1].count('/'):
             word=unquote(self.path[1:-1])
-            self.add_word(word)
+            add_word(word)
             self.print_word(word)
         else:
             self.print_404()
-        global check_date
-        if datetime.date.today()!=check_date:
-            self.daily_job()
-            check_date=datetime.date.today()
 if __name__=='__main__':
+    def daily_thread():
+        while True:
+            daily_job()
+            now=datetime.datetime.now()
+            date_time=now.strftime('%Y-%m-%d %H:%M:%S')
+            print('Daily job was finished at '+date_time+'.')
+            time.sleep(60*60*24)
+    thread=Thread(target=daily_thread)
+    thread.start()
     webServer=HTTPServer((hostName,serverPort),MyServer)
     print('Server started http://%s:%s'%(hostName,serverPort))
     try:
