@@ -107,7 +107,7 @@ class MyServer(BaseHTTPRequestHandler):
         self.wfile.write(bytes('<form action="/">','utf-8'))
         self.wfile.write(bytes('<input type="text" id="word" name="word"><br><br>','utf-8'))
         self.wfile.write(bytes('<input type="submit"><br><br>','utf-8'))
-        self.wfile.write(bytes('<input type="button" onclick="javascript:location.href=\'/\'+encodeURIComponent(document.getElementById(\'word\').value)+\'/\'" value="分析"></input>','utf-8'))
+        self.wfile.write(bytes('<input type="button" onclick="window.open(\'/\'+encodeURIComponent(document.getElementById(\'word\').value)+\'/\',\'_blank\').focus()" value="分析"></input>','utf-8'))
         self.wfile.write(bytes('</form>','utf-8'))
         self.wfile.write(bytes('<h2>待考詞彙表</h2>','utf-8'))
         conn=sqlite3.connect(database_name)
