@@ -259,10 +259,15 @@ class MyServer(BaseHTTPRequestHandler):
 if __name__=='__main__':
     def daily_thread():
         while True:
-            daily_job()
-            now=datetime.datetime.now()
-            date_time=now.strftime('%Y-%m-%d %H:%M:%S')
-            print('Daily job was finished at '+date_time+'.')
+            try:
+                daily_job()
+                now=datetime.datetime.now()
+                date_time=now.strftime('%Y-%m-%d %H:%M:%S')
+                print('Daily job was finished at '+date_time+'.')
+            except:
+                now=datetime.datetime.now()
+                date_time=now.strftime('%Y-%m-%d %H:%M:%S')
+                print('Daily job failed at '+date_time+'.')
             time.sleep(60*60*24)
     thread=Thread(target=daily_thread)
     thread.start()
