@@ -1,6 +1,6 @@
 from http.server import BaseHTTPRequestHandler,HTTPServer
 from socketserver import BaseServer
-import datetime,requests,json,sqlite3,re,functools,time
+import datetime,requests,json,sqlite3,re,functools,time,gc
 from urllib.parse import quote,unquote,parse_qs
 from threading import Thread
 hostName='45.76.17.116'#'localhost'
@@ -268,6 +268,7 @@ if __name__=='__main__':
                 now=datetime.datetime.now()
                 date_time=now.strftime('%Y-%m-%d %H:%M:%S')
                 print('Daily job failed at '+date_time+'.')
+            gc.collect()
             time.sleep(60*60*24)
     thread=Thread(target=daily_thread)
     thread.start()
