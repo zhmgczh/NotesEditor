@@ -256,6 +256,7 @@ class MyServer(BaseHTTPRequestHandler):
             self.print_word(word)
         else:
             self.print_404()
+        gc.collect()
 if __name__=='__main__':
     def daily_thread():
         while True:
