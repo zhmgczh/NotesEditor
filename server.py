@@ -240,7 +240,9 @@ class MyServer(BaseHTTPRequestHandler):
         if '/'==self.path:
             self.print_index()
         elif self.path.startswith('/?word='):
-            add_word(unquote(self.path[len('/?word='):]))
+            words=unquote(self.path[len('/?word='):]).split('、')
+            for word in words:
+                add_word(word)
             self.redirect('/')
         elif self.path.startswith('/check/?'):
             query=parse_qs(self.path[len('/check/?'):])
