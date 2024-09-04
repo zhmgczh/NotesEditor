@@ -8,7 +8,7 @@ ini_set('client_max_body_size', '256M');
 date_default_timezone_set('Asia/Taipei');
 $website_base_url = 'https://static.zh-tw.top';
 $category_database_url = 'https://static.zh-tw.top/category_database.js';
-$database_name = 'words.db';
+$database_name = 'dbwords.db';
 $entry_database = [];
 $all_words = [];
 $global_debug = '';
